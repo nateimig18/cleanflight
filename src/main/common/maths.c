@@ -40,16 +40,24 @@
 #define sinPolyCoef7 -1.980661520e-4f                                          // Double: -1.980661520135080504411629636078917643846e-4
 #define sinPolyCoef9  2.600054768e-6f                                          // Double:  2.600054767890361277123254766503271638682e-6
 #endif
-float sin_approx(float x)
-{
-    int32_t xint = x;
-    if (xint < -32 || xint > 32) return 0.0f;                               // Stop here on error input (5 * 360 Deg)
-    while (x >  M_PIf) x -= (2.0f * M_PIf);                                 // always wrap input angle to -PI..PI
-    while (x < -M_PIf) x += (2.0f * M_PIf);
-    if (x >  (0.5f * M_PIf)) x =  (0.5f * M_PIf) - (x - (0.5f * M_PIf));   // We just pick -90..+90 Degree
-    else if (x < -(0.5f * M_PIf)) x = -(0.5f * M_PIf) - ((0.5f * M_PIf) + x);
-    float x2 = x * x;
-    return x + x * x2 * (sinPolyCoef3 + x2 * (sinPolyCoef5 + x2 * (sinPolyCoef7 + x2 * sinPolyCoef9)));
+float sin_approx(float x){
+	#define M_INV_PI     0x5.17cc18p-4      // 0.3183098733425140380859375
+	#define M_PI         0x3.243f6cp0       // 3.1415927410125732421875
+	#define M_C1         0x3.243f00p0       // 3.1415863037109375
+	#define M_C2         0x6.a88858p-20     // 6.34987873127101920545101165771484375e-6
+
+	int32_t xint = x*M_INV_PI;
+	xint = (xint + 1) & ~1;
+	// if (xint < -32 || xint > 32) return 0.0f;            // No need for this, this new range reduction alg. works up 512 rad.
+	// while (x >  M_PIf) x -= (2.0f * M_PIf);              // This solution was not complete error was growing & unbounded.
+	// while (x < -M_PIf) x += (2.0f * M_PIf);
+	x = (x - xint*M_C1) - xint*M_C2;                        // Cody & Waite's Reduction Alg. provides a complete bound & higher 
+                                                            // accuracy range reduction than above. 
+
+	if (x >  (0.5f * M_PIf)) x =  (0.5f * M_PIf) - (x - (0.5f * M_PIf));   // We just pick -90..+90 Degree
+	else if (x < -(0.5f * M_PIf)) x = -(0.5f * M_PIf) - ((0.5f * M_PIf) + x);
+	float x2 = x * x;
+	return(x + x * x2 * (sinPolyCoef3 + x2 * (sinPolyCoef5 + x2 * (sinPolyCoef7 + x2 * sinPolyCoef9))));
 }
 
 float cos_approx(float x)
